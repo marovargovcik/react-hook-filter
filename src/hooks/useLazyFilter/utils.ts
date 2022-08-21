@@ -9,19 +9,18 @@ const transformLazyPropertyToRegular = (lazyProperty: TLazyProperty) => ({
   key: lazyProperty.key,
   label: lazyProperty.label,
   multiple: lazyProperty.multiple,
-  options:
-    typeof lazyProperty.options === 'function' ? [] : lazyProperty.options,
+  options: [],
 });
 
 const transformLazyPropertiesToRegular = (
   properties: Array<TLazyProperty | TProperty>
 ): TProperty[] =>
   properties.map((property) => {
-    if (!isLazyProperty(property)) {
-      return property;
+    if (isLazyProperty(property)) {
+      return transformLazyPropertyToRegular(property);
     }
 
-    return transformLazyPropertyToRegular(property);
+    return property;
   });
 
 export {

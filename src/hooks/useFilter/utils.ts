@@ -32,27 +32,6 @@ const isFilterDuplicate = (filterToCheck: TFilter, filters: TFilter[]) => {
     );
 };
 
-const getReadableFilterDescriptor = (filter: TFilter) =>
-  `${filter.property.label}: ${
-    isStringFilter(filter) ? filter.value : filter.option.label
-  }`;
-
-const findFilterFromUserFriendlyDescriptor = (
-  descriptor: string,
-  filters: TFilter[]
-) => {
-  const [label, value] = descriptor.split(': ');
-  return filters.find((filter) => {
-    if (label !== filter.property.label) {
-      return false;
-    }
-
-    return isStringFilter(filter)
-      ? value === filter.value
-      : value === filter.option.label;
-  });
-};
-
 const isPropertyWithOptions = (
   property: TProperty
 ): property is TProperty & { options: TPropertyOption[] } =>
@@ -90,14 +69,12 @@ const findPropertyOptionByLabelAndValue = (
 ) => options.find((option) => label === option.label && value === option.value);
 
 export {
-  findFilterFromUserFriendlyDescriptor,
   findPropertyByLabel,
   findPropertyByKey,
   findPropertyByLabelAndKey,
   findPropertyOptionByLabel,
   findPropertyOptionByValue,
   findPropertyOptionByLabelAndValue,
-  getReadableFilterDescriptor,
   isStringFilter,
   isOptionsFilter,
   isFilterDuplicate,

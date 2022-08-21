@@ -7,92 +7,114 @@ import {
   type TLazyProperty,
   type TUseLazyFilterProps,
 } from '@/hooks/useLazyFilter/types';
-import { isLazyProperty } from '@/hooks/useLazyFilter/utils';
+import {
+  isLazyProperty,
+  transformLazyPropertiesToRegular,
+} from '@/hooks/useLazyFilter/utils';
 
 const useLazyFilter = ({
-  filters,
-  input,
-  onFiltersChange,
   properties: lazyProperties,
+  ...props
 }: TUseLazyFilterProps) => {
+  // Because "lazyProperties" can be either of type TLazyProperty or TProperty
+  // and useFilter expects "properties" of TProperty[] type we have to do the transformation
+  // Transformation function does replace options property of type "() => Promise<TPropertyOption[]>"
+  // to options: [] (empty array) as options will be lazy fetched
   const properties = useMemo<TProperty[]>(
-    () =>
-      lazyProperties.map((property) => ({
-        key: property.key,
-        label: property.label,
-        multiple: property.multiple,
-        options: typeof property.options === 'function' ? [] : property.options,
-      })),
+    () => transformLazyPropertiesToRegular(lazyProperties),
     [lazyProperties]
   );
 
-  const { addFilter, clearFilters, filter, property, removeFilter } = useFilter(
-    {
-      filters,
-      input,
-      onFiltersChange,
-      properties,
-    }
-  );
+  const { addFilter, clearFilters, property, query, removeFilter } = useFilter({
+    properties,
+    ...props,
+  });
 
-  const [isFetching, setIsFetching] = useState(false);
+  const [isFetchingLazyOptions, setIsFetchingLazyOptions] = useState(false);
 
+  // Lazily fetched options of currently selected lazy property
+  // Value is null when a not lazy property is selected
+  // otherwise it is an empty array
   const [lazyOptions, setLazyOptions] = useState<TPropertyOption[] | null>(
     null
   );
 
-  const hasLazyOptions = Boolean(lazyOptions?.length);
+  // Flag to detect whether option has lazy options
+  // Property has lazyOptions when the value of lazyOptions is not null
+  const hasLazyOptions = useMemo(() => {
+    if (lazyOptions === null) {
+      return false;
+    }
+
+    return true;
+  }, [lazyOptions]);
 
   const loadLazyOptions = useCallback(async () => {
-    if (!property) {
+    // If no property is selected then set lazy options to null
+    if (property === null) {
       setLazyOptions(null);
       return;
     }
 
-    const lazyProperty = findPropertyByKey<TLazyProperty | TProperty>(
+    // It is necessary to find original lazy property as the "property" returned from "useFilter" hook
+    // is of type TProperty where options is not a () => Promise<TPropertyOption[]> but TPropertyOption[] instead.
+    // This is because of the transformation of "lazyProperties" to "regularProperties".
+    // We can find the original lazy property by looking up the key. But it might not be a lazy property.
+    const maybeLazyProperty = findPropertyByKey<TLazyProperty | TProperty>(
       property.key,
       lazyProperties
     );
 
-    if (!lazyProperty || !isLazyProperty(lazyProperty)) {
+    // If for some reason the property is not found fallback to lazyOptions being null
+    if (maybeLazyProperty === undefined) {
       setLazyOptions(null);
       return;
     }
 
-    try {
-      setIsFetching(true);
-      const options = await lazyProperty.options(filter);
-      setLazyOptions(options);
-    } catch {
-      setLazyOptions([]);
-    } finally {
-      setIsFetching(false);
+    // If "maybeLazyProperty" is lazy property then options property is a function of type () => Promise<TPropertyOption[]>
+    // Await that promise to load lazy options. This promise can be a API request or async computation.
+    if (isLazyProperty(maybeLazyProperty)) {
+      try {
+        setIsFetchingLazyOptions(true);
+        const options = await maybeLazyProperty.options(query);
+        setLazyOptions(options);
+      } catch {
+        setLazyOptions([]);
+      } finally {
+        setIsFetchingLazyOptions(false);
+      }
+
+      return;
     }
-  }, [filter, lazyProperties, property]);
+
+    // Otherwise "maybeLazyProperty" is not lazy property (TLazyProperty) but regular property (TProperty)
+    // In that case set lazy options to null
+    setLazyOptions(null);
+  }, [lazyProperties, property, query]);
 
   useEffect(() => {
     void loadLazyOptions();
   }, [loadLazyOptions]);
 
-  const maybeLazyProperty = useMemo(
-    () =>
-      property && hasLazyOptions
-        ? {
-            ...property,
-            options: lazyOptions,
-          }
-        : property,
-    [hasLazyOptions, lazyOptions, property]
-  );
+  // It is necessary to recompute the "property" as it can be lazy property
+  // If "hasLazyOptions" evaluates to true then we override the "options" property with lazily fetched options
+  const maybeLazyProperty = useMemo<TProperty | null>(() => {
+    if (property && hasLazyOptions) {
+      return {
+        ...property,
+        options: lazyOptions,
+      };
+    }
+
+    return property;
+  }, [hasLazyOptions, lazyOptions, property]);
 
   return {
     addFilter,
     clearFilters,
-    filter,
-    hasLazyOptions,
-    isFetching,
-    properties,
+    isFetching: isFetchingLazyOptions,
     property: maybeLazyProperty,
+    query,
     removeFilter,
   };
 };

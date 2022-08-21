@@ -2,6 +2,7 @@ import {
   type TProperty,
   type TPropertyOption,
   type TUseFilterProps,
+  type TUseFilterResult,
 } from '@/hooks/useFilter/types';
 
 type TLazyProperty = Omit<TProperty, 'options'> & {
@@ -12,4 +13,8 @@ type TUseLazyFilterProps = Omit<TUseFilterProps, 'properties'> & {
   properties: Array<TLazyProperty | TProperty>;
 };
 
-export type { TLazyProperty, TUseLazyFilterProps };
+type TUseLazyFilterResult = TUseFilterResult & {
+  isFetching: boolean;
+};
+
+export type { TLazyProperty, TUseLazyFilterProps, TUseLazyFilterResult };
