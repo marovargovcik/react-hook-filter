@@ -4,6 +4,7 @@ import {
   type TFilter,
   type TProperty,
   type TUseFilterProps,
+  type TUseFilterResult,
 } from '@/hooks/useFilter/types';
 import {
   findPropertyByLabel,
@@ -12,67 +13,115 @@ import {
 } from '@/hooks/useFilter/utils';
 
 const useFilter = ({
+  delimiter = ': ',
   filters,
   input,
   onFiltersChange,
   properties,
-}: TUseFilterProps) => {
-  const [filter, property]: [string | null, TProperty | null] = useMemo(() => {
-    if (!input || !input.includes(': ')) {
+}: TUseFilterProps): TUseFilterResult => {
+  const [property, query]: [TProperty | null, string | null] = useMemo(() => {
+    // Skip any computation if "input" is equal to empty string
+    // or input do not include delimiter
+    if (input === '' || input.includes(delimiter) === false) {
       return [null, null];
     }
 
-    const [label, filter] = input.split(': ');
+    // Split the input by delimiter into label and value
+    // Example:
+    //  delimiter = ": "
+    //  input = "Name: John"
+    // then
+    //  label = "Name"
+    //  query = "John"
+    const [label, query] = input.split(delimiter);
 
     const property = findPropertyByLabel(label, properties);
-    if (!property) {
+
+    if (property === undefined) {
       return [null, null];
     }
 
-    return [filter || null, property];
-  }, [properties, input]);
+    return [property, query || null];
+  }, [input, delimiter, properties]);
 
   const addFilter = useCallback(
-    (filterToAdd: TFilter) => {
-      if (isFilterDuplicate(filterToAdd, filters)) {
+    (candidateFilter: TFilter) => {
+      // If "candidateFilter" is already present in "filters"
+      // then skip any action
+      if (isFilterDuplicate(candidateFilter, filters)) {
         return;
       }
 
-      if (filterToAdd.property.multiple) {
-        onFiltersChange([...filters, filterToAdd]);
+      // If filter that should be added can occur multiple times
+      // in the filters then add the filter at the end of the "filters" array
+      if (candidateFilter.property.multiple) {
+        onFiltersChange([...filters, candidateFilter]);
         return;
       }
 
-      const modifiedFilters = filters.filter(
-        (filter) => filter.property.key !== filterToAdd.property.key
+      // Filter out "candidateFilter" from "filters" array just in case it is present
+      // It is necessary as it is now known that "candidateFilter" cannot occur in
+      // "filters" array multiple times (because of previous if condition)
+      const otherFilters = filters.filter(
+        (filter) => filter.property.key !== candidateFilter.property.key
       );
-      onFiltersChange([...modifiedFilters, filterToAdd]);
+
+      onFiltersChange([...otherFilters, candidateFilter]);
     },
     [filters, onFiltersChange]
   );
 
   const removeFilter = useCallback(
-    (filterToRemove: TFilter) => {
-      const modifiedFilters = filters.filter((filter) => {
-        if (filter.property.key !== filterToRemove.property.key) {
+    (candidateFilter: TFilter) => {
+      const changedFilters = filters.filter((iteratedFilter) => {
+        // Keep filter if the currently iterated filter is not the one
+        // that is supposed to be removed
+        if (iteratedFilter.property.key !== candidateFilter.property.key) {
           return true;
         }
 
-        if (isStringFilter(filter)) {
-          if (isStringFilter(filterToRemove)) {
-            return filter.value !== filterToRemove.value;
+        if (isStringFilter(iteratedFilter)) {
+          // If both "iteratedFilter" and "candidateFilter" are string filters
+          // compare their values
+          if (isStringFilter(candidateFilter)) {
+            const areFilterValuesEqual =
+              iteratedFilter.value === candidateFilter.value;
+
+            // If values are the same then "iteratedFilter" and "candidateFilter" are
+            // the same filter and it should be removed
+            if (areFilterValuesEqual) {
+              return false;
+            }
+
+            // If values do not match keep the filter
+            return true;
           }
 
+          // If "candidateFilter" is not string filter then keep the "iteratedFilter"
+          // as it is not the filter that should be removed
           return true;
         }
 
-        if (isStringFilter(filterToRemove)) {
+        // "iteratedFilter" is option filter
+        // if "candidateFilter" is string filter then it is not the filter
+        // that should be removed
+        if (isStringFilter(candidateFilter)) {
           return true;
         }
 
-        return filter.option.value !== filterToRemove.option.value;
+        // both "iteratedFilter" and "candidateFilter" are option filters
+        // we can check option value of both and compare them
+        const areFilterValuesEqual =
+          iteratedFilter.option.value === candidateFilter.option.value;
+
+        // if values are equal then "iteratedFilter" is "candidateFilter" which should be removed
+        if (areFilterValuesEqual) {
+          return false;
+        }
+
+        return true;
       });
-      onFiltersChange(modifiedFilters);
+      onFiltersChange(changedFilters);
     },
     [filters, onFiltersChange]
   );
@@ -85,8 +134,8 @@ const useFilter = ({
   return {
     addFilter,
     clearFilters,
-    filter,
     property,
+    query,
     removeFilter,
   };
 };

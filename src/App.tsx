@@ -6,11 +6,10 @@ import {
 } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 
-import { type TProperty } from './hooks/useFilter/types';
-import { type TLazyProperty } from './hooks/useLazyFilter/types';
-import { useURLConnectedFilter } from './hooks/useURLConnectedFilter/hook';
+import { useFilter } from './hooks/useFilter/hook';
+import { type TFilter, type TProperty } from './hooks/useFilter/types';
 
-const properties: Array<TLazyProperty | TProperty> = [
+const properties: TProperty[] = [
   {
     key: 'name',
     label: 'Name',
@@ -20,31 +19,34 @@ const properties: Array<TLazyProperty | TProperty> = [
 ];
 
 const App = () => {
-  const [searchValue, setSearchValue] = useState('');
+  const [input, setInput] = useState('');
+  const [filters, setFilters] = useState<TFilter[]>([]);
 
-  const hook = useURLConnectedFilter({
-    input: searchValue,
+  const hook = useFilter({
+    delimiter: ': ',
+    filters,
+    input,
+    onFiltersChange: setFilters,
     properties,
   });
 
-  const handleSearchValueChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) =>
-      setSearchValue(event.target.value),
+  const handleInputChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => setInput(event.target.value),
     []
   );
 
-  const handleSearchValueSubmit = useCallback(
+  const handleInputSubmit = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
       if (event.key !== 'Enter') {
         return;
       }
 
-      if (hook.property !== null && hook.filter !== null) {
+      if (hook.property !== null && hook.query !== null) {
         hook.addFilter({
           property: hook.property,
-          value: hook.filter,
+          value: hook.query,
         });
-        setSearchValue('');
+        setInput('');
       }
     },
     [hook]
@@ -57,9 +59,10 @@ const App = () => {
         <br />
         <input
           id='search'
-          onChange={handleSearchValueChange}
-          onKeyDown={handleSearchValueSubmit}
+          onChange={handleInputChange}
+          onKeyDown={handleInputSubmit}
           type='text'
+          value={input}
         />
       </div>
       <div>
