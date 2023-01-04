@@ -9,9 +9,10 @@ import {
 
 import { Chakra } from './variants/chakra/chakra';
 import { Mui } from './variants/mui/mui';
+import { URL } from './variants/url/url';
 import { Vanilla } from './variants/vanilla/vanilla';
 
-type TVariant = 'chakra' | 'mui' | 'vanilla';
+type TVariant = 'chakra' | 'mui' | 'url' | 'vanilla';
 
 const App = () => {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ const App = () => {
         <option value='vanilla'>Vanilla</option>
         <option value='mui'>MUI</option>
         <option value='chakra'>Chakra</option>
+        <option value='url'>URL</option>
       </select>
       <div>
         <Routes>
@@ -41,6 +43,7 @@ const App = () => {
           <Route element={<Vanilla />} path='vanilla' />
           <Route element={<Mui />} path='mui' />
           <Route element={<Chakra />} path='chakra' />
+          <Route element={<URL />} path='url' />
         </Routes>
       </div>
     </>
