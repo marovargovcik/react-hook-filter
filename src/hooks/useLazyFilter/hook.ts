@@ -41,13 +41,7 @@ const useLazyFilter = ({
 
   // Flag to detect whether option has lazy options
   // Property has lazyOptions when the value of lazyOptions is not null
-  const hasLazyOptions = useMemo(() => {
-    if (lazyOptions === null) {
-      return false;
-    }
-
-    return true;
-  }, [lazyOptions]);
+  const hasLazyOptions = useMemo(() => lazyOptions !== null, [lazyOptions]);
 
   const loadLazyOptions = useCallback(async () => {
     // If no property is selected then set lazy options to null
